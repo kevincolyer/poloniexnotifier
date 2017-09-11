@@ -29,20 +29,6 @@ func (o Order) String() (s string) {
 	return
 }
 
-// func (t PrivateTradeHistoryEntry) String() string {
-//     fmt.Sprintf("(%s) Trade: ",t.Date,t.Type, )
-// }
-/*
-
-	PrivateTradeHistoryEntry struct {
-		Date        string
-		Rate        float64 `json:",string"`
-		Amount      float64 `json:",string"`
-		Total       float64 `json:",string"`
-		OrderNumber int64   `json:",string"`
-		Type        string
-	}*/
-
 type MyOpenOrders []MyOpenOrder
 type MyOpenOrder struct {
 	poloniex.OpenOrder
@@ -84,8 +70,12 @@ func (c Currency) String() (s string) {
 	i := strings.Split(fmt.Sprintf("%.9f", float64(c)), ".")
 	s = everyThird(reverseStr(i[0]), ",")
 	s = reverseStr(s) + "." + everyThird(i[1], "_")
-
 	return
+}
+
+func Comma(n float64) string {
+    i := strings.Split(fmt.Sprintf("%.2f", n), ".")
+    return reverseStr(everyThird(reverseStr(i[0]), ",")) + "." + i[1]	
 }
 
 func everyThird(str, insert string) (s string) {
@@ -110,6 +100,131 @@ func reverseStr(str string) (out string) {
 		out = string(s) + out
 	}
 	return
+}
+
+type column struct {
+	title  string
+	width  int
+	widthr int // used for DOT
+	widthl int // used for DOT
+	align  int
+	dot    string "."
+}
+
+const (
+	LEFT = iota + 1
+	RIGHT
+	CENTRE
+	DOT
+)
+
+type PrettyTable struct {
+	columns []column
+	rows    [][]string
+	colsep  string
+	rowsep  string
+	padding string
+	html    bool
+}
+
+func NewPrettyTable() (t PrettyTable)  {
+	t.rowsep = "-"
+	t.colsep = "|"
+	t.html = false
+	t.padding = " "
+	return
+}
+
+func (t PrettyTable) addColumn(c column) PrettyTable {
+	t.columns = append(t.columns, c)
+	return t
+}
+
+func (t PrettyTable) addRow(cols []string) PrettyTable {
+	t.rows = append(t.rows, cols)
+	// get max width as we add columns in. Dot centred is harder to calc and need left and right of decimal point widths taken into cosideration.
+	for i, c := range t.columns {
+		w := len(cols[i]) // current width of col in this row
+		if c.align == DOT {
+			j := strings.Split(cols[i], c.dot)
+			t.columns[i].widthl = max(t.columns[i].widthl, len(j[0]))
+			t.columns[i].widthr = max(t.columns[i].widthr, len(j[1]))
+			w = t.columns[i].widthl + t.columns[i].widthr + len(c.dot)
+		}
+		t.columns[i].width = max(t.columns[i].width, w)
+	}
+	return t
+}
+
+func (t PrettyTable) String() (s string) {
+	// print header
+	var txt string
+	pad := t.padding
+	nl := "\n"
+	// sep header sep
+	for _, col := range t.columns {
+		if len(txt) > 0 {
+			txt += t.colsep
+		}
+		txt += pad + padcentre(col.title, col.width) + pad
+	}
+	bar := strings.Repeat(t.rowsep, len(txt)) + nl
+	s = bar + txt + nl + bar
+	// rows final sep
+	for _, row := range t.rows {
+		txt = ""
+		for i, col := range row {
+			if len(txt) > 0 {
+				txt += t.colsep
+			}
+			txt += pad + t.columns[i].aligntext(col) + pad
+		}
+		s += txt + nl
+	}
+	s+=bar
+	return 
+}
+
+func (c column) aligntext(text string) (s string) {
+	switch c.align {
+	case LEFT:
+		s = padl(text, c.width)
+	case RIGHT:
+		s = padr(text, c.width)
+	case CENTRE:
+		s = padcentre(text, c.width)
+        case DOT:
+                i := strings.Split(text, c.dot)
+		s = padl(i[0], c.widthl) + c.dot + padr(i[1], c.widthr)
+        default: s="unforseen error"
+	}
+	return s
+}
+
+func padl(text string, width int) string {
+	return spaces(width-len(text)) + text
+}
+
+func padr(text string, width int) string {
+	return text + spaces(width-len(text))
+}
+
+func padcentre(text string, width int) string {
+	add := spaces((len(text)%2+width%2)%2) // 1 if odd, 0 if even
+	lr := spaces((width - len(text)) / 2)
+
+	return lr + text + lr + add
+}
+
+func spaces(width int) string {
+	return strings.Repeat(" ", width)
+}
+
+func max(i, j int) int {
+	if i > j {
+		return i
+	}
+	return j
 }
 
 func main() {
@@ -137,17 +252,11 @@ func main() {
 		log.Fatalln(err)
 	}
 	fmt.Println("\nPrices")
-	fmt.Printf("%+v\n", ticker["USDT_BTC"])
+	//fmt.Printf("%+v\n", ticker["USDT_BTC"])
 	USDT_BTC := ticker["USDT_BTC"].Last
-	fmt.Println("Last price of Bitcoin was: ", USDT_BTC)
+	fmt.Println("Last price of Bitcoin : $", Comma(USDT_BTC))
+	fmt.Println("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last))
 
-	// 	// Balances
-	// 	fmt.Println("\nBalances")
-	// 	balances, err := p.Balances()
-	// 	if err != nil {
-	// 		log.Fatalln(err)
-	// 	}
-	// 	fmt.Printf("%+v\n", balances)
 
 	// my open OpenOrdersAll
 	fmt.Println("\nMy Open Orders")
@@ -173,13 +282,26 @@ func main() {
 	}
 	//Sort by absolute value of proximity percentage ascending
 	sort.Slice(myorders, func(i, j int) bool { return math.Abs(myorders[i].Proximity) < math.Abs(myorders[j].Proximity) })
-	fmt.Printf("%-9s | %4s | %4s | %15s | %15s | %20s\n", "Order", "Prox", "Type", "Rate", "Amount", "Total")
+// 	fmt.Printf("%-9s | %4s | %4s | %15s | %15s | %20s\n", "Order", "Prox", "Type", "Rate", "Amount", "Total")
+// 
+//         for _, o := range myorders {
+// 		fmt.Printf("%9s | %3.0f%% | %-4s | %-5.9f | %-5.9f | %-5.9f %s\n", o.Pair, o.Proximity, o.Type, o.Rate, o.Amount, o.Total, o.Pair.Base)
+// 	}
+
+	t := NewPrettyTable()
+	t=t.addColumn(column{title: "Order", align: LEFT})
+	t=t.addColumn(column{title: "Prox", align: LEFT})
+	t=t.addColumn(column{title: "Type", align: LEFT, dot: "."})
+	t=t.addColumn(column{title: "Rate", align: DOT, dot: "."})
+	t=t.addColumn(column{title: "Amount", align: DOT, dot: "."})
+	t=t.addColumn(column{title: "Total", align: DOT, dot: "."})
 	for _, o := range myorders {
-		// 		fmt.Printf("Pair: %9s %v\n", order.Pair, order)
-		fmt.Printf("%9s | %%%3.0f | %-4s | %-5.9f | %-5.9f | %-5.9f %s\n", o.Pair, o.Proximity, o.Type, o.Rate, o.Amount, o.Total, o.Pair.Base)
+		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base)
+                j:=strings.Split(i, "|")
+		t=t.addRow(j)
 	}
-	fmt.Printf("test %v \n", Currency(10000.123123123123))
-	//fmt.Printf("%+v\n", openorders)
+	// and print the resulting table!
+	fmt.Println(t)
 }
 
 /* intialise
