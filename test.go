@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+        "time"
 
 	"gitlab.com/wmlph/poloniex-api"
 	//        "gopkg.in/gomail.v2"
@@ -37,6 +38,14 @@ type MyOpenOrder struct {
 	Pair        CurrencyPair
 }
 type MyOpenOrders []MyOpenOrder
+
+type MyTradeEntry struct {
+	poloniex.PrivateTradeHistoryEntry
+	CurrentRate float64
+	Pair        CurrencyPair
+	TradeDate   time.Time
+}
+type MyTradeHistory []MyTradeEntry
 
 func (o MyOpenOrder) String() string {
 	return fmt.Sprintf("Prox.: %%%.0f %-4s Rate: %.9f Amount: %.9f Total: %.9f %s", o.Proximity, o.Type, o.Rate, o.Amount, o.Total, o.Pair.Base)
@@ -132,20 +141,21 @@ type PrettyTable struct {
 	footer  int // 0 if none or row number the footer begins on
 }
 
-func NewPrettyTable() (t PrettyTable) {
+func NewPrettyTable() (t *PrettyTable) {
+        t=new(PrettyTable)
 	t.rowsep = "-"
 	t.colsep = "|"
 	t.html = false
 	t.padding = " "
-	return
+        return
 }
 
-func (t PrettyTable) addColumn(c column) PrettyTable {
-	t.columns = append(t.columns, c)
+func (t *PrettyTable) addColumn(c *column) *PrettyTable {
+	t.columns = append(t.columns, *c)
 	return t
 }
 
-func (t PrettyTable) addRow(cols []string) PrettyTable {
+func (t *PrettyTable) addRow(cols []string) *PrettyTable {
 	t.rows = append(t.rows, cols)
 	// get max width as we add columns in. Dot centred is harder to calc and need left and right of decimal point widths taken into consideration.
 	for i, c := range t.columns {
@@ -166,16 +176,16 @@ func (t PrettyTable) addRow(cols []string) PrettyTable {
 	return t
 }
 
-func (t PrettyTable) addFooter(cols []string) PrettyTable {
+func (t *PrettyTable) addFooter(cols []string) *PrettyTable {
 	tablelength := len(t.rows)
 	if t.footer == 0 {
 		t.footer = tablelength - 1
 	}
-	t.addRow(cols)
+	t.addRow(cols)        
 	return t
 }
 
-func (t PrettyTable) String() (s string) {
+func (t *PrettyTable) String() (s string) {
 	// print header
 	var txt string
 	pad := t.padding
@@ -187,10 +197,11 @@ func (t PrettyTable) String() (s string) {
 			txt += t.colsep
 		}
 		txt += pad + padcentre(col.title, col.width) + pad
-		if emph == true {
+		
+	}
+	if emph == true {
 			txt = strings.ToUpper(txt)
 		}
-	}
 	emph = false
 	bar := strings.Repeat(t.rowsep, len(txt)) + nl
 	s = bar + txt + nl + bar
@@ -208,7 +219,7 @@ func (t PrettyTable) String() (s string) {
 		} // if in footer or header
 		s += txt + nl
 		// if just before the footer...
-		if j == t.footer-1 {
+		if j == t.footer {
 			s += bar
 			emph = true
 		} // in footer now...
@@ -226,8 +237,13 @@ func (c column) aligntext(text string) (s string) {
 	case CENTRE:
 		s = padcentre(text, c.width)
 	case DOT:
+                
 		i := strings.Split(text, c.dot)
-		s = padl(i[0], c.widthl) + c.dot + padr(i[1], c.widthr)
+		if len(i) !=2 { 
+                    s= padl(text, c.width)
+                    return s
+                }
+                s = padl(i[0], c.widthl) + c.dot + padr(i[1], c.widthr)
 	default:
 		s = "unforseen error"
 	}
@@ -273,14 +289,34 @@ func main() {
 	// 	fmt.Printf("%+v\n", balances)
 	// my Trades
 	// 	fmt.Println("My Trades")
-	// 	mytrades, err := p.PrivateTradeHistoryAllWeek()
 	// 	// 	mytrades, err := p.PrivateTradeHistory("BTC_ETH")
 	// 	// 	mytrades, err := p.OpenOrders("BTC_ETH")
 	// 	//      mytrades, err := p.OpenOrdersAll()
-	// 	if err != nil {
-	// 		log.Fatalln(err)
-	// 	}
-	// 	fmt.Printf("%+v\n", mytrades)
+		mytrades, err := p.PrivateTradeHistoryAllWeek()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	fmt.Printf("%+v\n", mytrades)
+/* const poloniex = "2006-01-02 15:04:05"
+ * 	t, _ := time.Parse(poloniex, "2017-09-06 16:32:11")
+	fmt.Println(t)
+	fmt.Println(t.Format(time.RFC850))
+ * 
+ * map[BTC_XVC:[{Date:2017-09-10 10:06:12 Rate:6.228e-05 Amount:321.13037893 Total:0.01999999 OrderNumber:12772221092 Type:buy}] BTC_ETH:[{Date:2017-09-06 16:32:11 Rate:0.07323579 Amount:0.34137271 Total:0.0250007 OrderNumber:340124483200 Type:buy}] BTC_FCT:[{Date:2017-09-06 16:27:19 Rate:0.00579547 Amount:2.78283386 Total:0.01612783 OrderNumber:97667946443 Type:buy} {Date:2017-09-06 16:27:19 Rate:0.00579537 Amount:1.53088012 Total:0.00887201 OrderNumber:97667946443 Type:buy}] BTC_XMR:[{Date:2017-09-06 16:18:04 Rate:0.02626533 Amount:0.11420023 Total:0.0029995 OrderNumber:197280996639 Type:buy}] BTC_XPM:[{Date:2017-09-06 16:15:27 Rate:7.922e-05 Amount:62.92359776 Total:0.0049848 OrderNumber:7172193743 Type:buy} {Date:2017-09-06 16:14:43 Rate:7.922e-05 Amount:0.19177714 Total:1.519e-05 OrderNumber:7172193743 Type:buy}] BTC_NXT:[{Date:2017-09-06 16:11:18 Rate:2.207e-05 Amount:226.55188038 Total:0.00499999 OrderNumber:34219240575 Type:buy}] 
+ * BTC_NAV:[{Date:2017-09-11 06:59:18 Rate:0.00026 Amount:38.46153846 Total:0.00999999 OrderNumber:24308884843 Type:buy}]]
+
+ */
+        
+// 	PrivateTradeHistory      []PrivateTradeHistoryEntry
+// 	PrivateTradeHistoryEntry struct {
+// 		Date        string
+// 		Rate        float64 `json:",string"`
+// 		Amount      float64 `json:",string"`
+// 		Total       float64 `json:",string"`
+// 		OrderNumber int64   `json:",string"`
+// 		Type        string
+// 	}
+// 	PrivateTradeHistoryAll map[string]PrivateTradeHistory
 
 	// Prices
 	ticker, err := p.Ticker()
@@ -296,6 +332,9 @@ func main() {
 	fmt.Println("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
 
 	// my open OpenOrdersAll
+	fmt.Println("\nMy Recent Trade History")
+        //
+        
 	fmt.Println("\nMy Open Orders")
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
@@ -326,26 +365,37 @@ func main() {
 	// 	}
 
 	t := NewPrettyTable()
-	t = t.addColumn(column{title: "Order", align: LEFT})
-	t = t.addColumn(column{title: "Prox", align: LEFT})
-	t = t.addColumn(column{title: "Type", align: LEFT, dot: "."})
-	t = t.addColumn(column{title: "Rate", align: DOT, dot: "."})
-	t = t.addColumn(column{title: "Amount", align: DOT, dot: "."})
-	t = t.addColumn(column{title: "Value", align: DOT, dot: "."})
-	t = t.addColumn(column{title: "Gain", align: DOT, dot: "."})
-	t = t.addColumn(column{title: "24hrs", align: LEFT})
+	t.addColumn(&column{title: "Order", align: LEFT})
+	t.addColumn(&column{title: "Prox", align: LEFT})
+	t.addColumn(&column{title: "Type", align: LEFT, dot: "."})
+	t.addColumn(&column{title: "Rate", align: DOT, dot: "."})
+	t.addColumn(&column{title: "Amount", align: DOT, dot: "."})
+	t.addColumn(&column{title: "Value", align: DOT, dot: "."})
+	t.addColumn(&column{title: "Gain", align: DOT, dot: "."})
+	t.addColumn(&column{title: "24hrs", align: LEFT})
+        gain:=0.0
+        asnow:=0.0
+        j:=0.0
 	for _, o := range myorders {
 		k := o.Total
 		if o.Pair.Base == "BTC" {
 			k = USDT_BTC * k
 		}
+		gain+=k
+		j=o.Amount
+		if o.Pair.Base=="BTC" {
+                    j=j*ticker[o.Pair.Poloniex()].Last*USDT_BTC
+                }
+		asnow+=j
 		// 
-		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s|$%v|(%+.0f%%)", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k),ticker[o.Pair.Poloniex()].Change*100)
+		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s|$%v|%+.0f%%", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k),ticker[o.Pair.Poloniex()].Change*100)
 
-		t = t.addRow(strings.Split(i, "|"))
+		t.addRow(strings.Split(i, "|"))
 	}
 	// and print the resulting table!
-	t=t.addFooter([]string{"Nice Footer","","","","","","",""})
+	t.addFooter([]string{"If realised","","","","","","","$"+Comma(gain)})
+	t.addFooter([]string{"As now","","","","","","","$"+Comma(asnow)})
+	t.addFooter([]string{"Profit","","","","","","","$"+Comma(gain-asnow)})
 	fmt.Println(t)
 }
 
