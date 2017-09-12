@@ -321,7 +321,7 @@ func NewReport(conf string) *Report {
 func main() {
 	p := poloniex.New("config.json")
 	report := NewReport("reportconfig.json")
-	report.body = fmt.Sprintln("\n", heading("Prices"))
+	report.body = fmt.Sprintln("\n"+ heading("Prices"))
 	/*
 	   Prices
 	*/
@@ -341,8 +341,8 @@ func main() {
 	   recent trades
 	*/
 
-	report.body += fmt.Sprintln("\n", heading("Recent Trades"))
-	mytrades, err := p.PrivateTradeHistoryAllWeek()
+	report.body += fmt.Sprintln("\n"+ heading("Recent Trades"))
+	mytrades, err := p.PrivateTradeHistoryAll()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -384,7 +384,10 @@ func main() {
         gain := 0.0
 	p24h := ""
 	past24hours := time.Now().Add(time.Duration(-24) * time.Hour)
+	//pastweek := time.Now().Add(time.Duration(-24*7) * time.Hour)
+
 	for _, o := range mytradehistory {
+		//if o.TradeDate.Before(pastweek) { continue }
 		k := o.Total
 		if o.Pair.Base == "BTC" {
 			k = USDT_BTC * k
@@ -406,7 +409,7 @@ func main() {
 		OpenOrders
 	*/
 
-	report.body += fmt.Sprintln("\n", heading("My Open Orders"))
+	report.body += fmt.Sprintln("\n"+ heading("My Open Orders"))
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
 		log.Fatalln(err)
