@@ -95,11 +95,17 @@ func Comma(n float64) string {
 }
 
 func everyThird(str, insert string) (s string) {
-        if str=="" { return }
+	if str == "" {
+		return
+	}
 	for len(str) > 0 {
 		l := len(str)
 		if l > 3 {
-                        if str[3]=='-' || str[3]=='+' { l=4 } else {l = 3}
+			if str[3] == '-' || str[3] == '+' {
+				l = 4
+			} else {
+				l = 3
+			}
 		}
 		s = s + str[:l]
 		str = str[l:]
@@ -232,6 +238,9 @@ func (t *PrettyTable) String() (s string) {
 		} // in footer now...
 	}
 	s += bar
+	if t.html {
+		s = "<pre>" + s + "</pre>"
+	}
 	return
 }
 
@@ -321,7 +330,7 @@ func NewReport(conf string) *Report {
 func main() {
 	p := poloniex.New("config.json")
 	report := NewReport("reportconfig.json")
-	report.body = fmt.Sprintln("\n"+ heading("Prices"))
+	report.body = fmt.Sprintln("\n" + heading("Prices"))
 	/*
 	   Prices
 	*/
@@ -341,7 +350,7 @@ func main() {
 	   recent trades
 	*/
 
-	report.body += fmt.Sprintln("\n"+ heading("Recent Trades"))
+	report.body += fmt.Sprintln("\n" + heading("Recent Trades"))
 	mytrades, err := p.PrivateTradeHistoryAll()
 	if err != nil {
 		log.Fatalln(err)
@@ -371,6 +380,7 @@ func main() {
 	sort.Slice(mytradehistory, func(i, j int) bool { return mytradehistory[i].Date > mytradehistory[j].Date })
 
 	t := NewPrettyTable()
+	//	t.html=true
 	t.addColumn(&column{title: "24", align: RIGHT})
 	t.addColumn(&column{title: "Order", align: LEFT})
 	t.addColumn(&column{title: "Date", align: LEFT})
@@ -381,7 +391,7 @@ func main() {
 	t.addColumn(&column{title: "Value", align: DOT, dot: "."})
 	t.addColumn(&column{title: "24", align: LEFT})
 
-        gain := 0.0
+	gain := 0.0
 	p24h := ""
 	past24hours := time.Now().Add(time.Duration(-24) * time.Hour)
 	//pastweek := time.Now().Add(time.Duration(-24*7) * time.Hour)
@@ -392,8 +402,10 @@ func main() {
 		if o.Pair.Base == "BTC" {
 			k = USDT_BTC * k
 		}
-		if o.Type=="buy" { k=-k} 
-		gain+=k
+		if o.Type == "buy" {
+			k = -k
+		}
+		gain += k
 		if o.TradeDate.Before(past24hours) {
 			p24h = " "
 		} else {
@@ -402,14 +414,14 @@ func main() {
 		i := fmt.Sprintf("%s|%9s|%s|%-4s|%v|%v|%v|%v USDT|%s", p24h, o.Pair, o.Date, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), Comma(k), p24h)
 		t.addRow(strings.Split(i, "|"))
 	}
-	t.addFooter([]string{"","Net gain", "", "", "", "", "",  Comma(gain)+" USDT",""})
+	t.addFooter([]string{"", "Net gain", "", "", "", "", "", Comma(gain) + " USDT", ""})
 	report.body += fmt.Sprintln(t)
 
 	/*
 		OpenOrders
 	*/
 
-	report.body += fmt.Sprintln("\n"+ heading("My Open Orders"))
+	report.body += fmt.Sprintln("\n" + heading("My Open Orders"))
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
 		log.Fatalln(err)
@@ -480,7 +492,8 @@ func (r Report) Send() (e error) {
 	m.SetHeader("To", r.emailto)
 	m.SetHeader("Subject", r.subject)
 	m.SetBody("text/plain", r.body)
-	d := gomail.NewDialer(r.smtpserver, r.port, r.smtp_login, r.smtp_password)
+	//d := gomail.NewDialer(r.smtpserver, r.port, r.smtp_login, r.smtp_password) // with auth
+	d := gomail.Dialer{Host: r.smtpserver, Port: r.port, SSL: false, Auth: nil} // no auth
 	//if r.smtp_ssl {d.SSL=true}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
