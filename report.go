@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+        "github.com/pkg/errors"
 
 	"gitlab.com/wmlph/poloniex-api"
 	"gopkg.in/gomail.v2"
@@ -302,29 +303,37 @@ func heading(text string) string {
 }
 
 type Report struct {
-	emailto       string
-	emailfrom     string
-	smtpserver    string
-	reportname    string
-	port          int
-	smtp_login    string
-	smtp_password string
-	smtp_ssl      bool
-	subject       string
-	body          string
+	Emailto       string
+	Emailfrom     string
+	Smtpserver    string
+	Reportname    string
+	Port          float64
+	Smtp_login    string
+	Smtp_password string
+	Smtp_ssl      bool
+	Subject       string
+	Body          string
 }
+
+// unmarshal only fills exported fields!!!
 
 func NewReport(conf string) *Report {
 	r := &Report{}
+// 	fmt.Println(r)
 	b, err := ioutil.ReadFile(conf)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln(errors.Wrap(err, "reading "+conf+" failed."))
 	}
+// 	fmt.Printf("%s\n",b)
 	err = json.Unmarshal(b, r)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln(errors.Wrap(err, "unmarshalling json failed"))
 	}
-	r.subject = "Poloniex Activity Report for " + r.reportname + " at " + time.Now().Format(poloniexTime)
+// 	fmt.Println(r)
+	if r.Reportname=="" {
+            log.Fatalln("Error - no report name specified in config file "+conf)
+        }
+	r.Subject = "Poloniex Activity Report for " + r.Reportname + " at " + time.Now().Format(poloniexTime)
 	return r
 
 }
@@ -333,11 +342,11 @@ func main() {
 	p := poloniex.New("config.json")
 	report := NewReport("reportconfig.json")
 
-	report.body = fmt.Sprintln(heading(report.subject) + "\n\n")
+	report.Body = fmt.Sprintln(heading(report.Subject) + "\n\n")
 	/*
 	   Prices
 	*/
-	report.body += fmt.Sprintln("\n" + heading("Prices"))
+	report.Body += fmt.Sprintln("\n" + heading("Prices"))
 
 	ticker, err := p.Ticker()
 	if err != nil {
@@ -347,15 +356,17 @@ func main() {
 	//fmt.Printf("%+v\n", ticker["USDT_BTC"]) == {Last:4192.58071046 Ask:4192.58071046 Bid:4186.2093 Change:0.03316429 BaseVolume:3.534202327390681e+07 QuoteVolume:8405.26739006 IsFrozen:0}
 
 	USDT_BTC := ticker["USDT_BTC"].Last
-	report.body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
-	report.body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
+	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
+	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
 
 	/*
 	   recent trades
 	*/
 
-	report.body += fmt.Sprintln("\n" + heading("Recent Trades"))
-	mytrades, err := p.PrivateTradeHistoryAll()
+	report.Body += fmt.Sprintln("\n" + heading("Recent Trades"))
+
+	// added a patch to poloniex api to provide the function below
+	mytrades, err := p.PrivateTradeHistoryAllWeek()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -418,13 +429,13 @@ func main() {
 		t.addRow(strings.Split(i, "|"))
 	}
 	t.addFooter([]string{"", "Net gain", "", "", "", "", "", Comma(gain) + " USDT", ""})
-	report.body += fmt.Sprintln(t)
+	report.Body += fmt.Sprintln(t)
 
 	/*
 		OpenOrders
 	*/
 
-	report.body += fmt.Sprintln("\n" + heading("My Open Orders"))
+	report.Body += fmt.Sprintln("\n" + heading("My Open Orders"))
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
 		log.Fatalln(err)
@@ -480,23 +491,24 @@ func main() {
 	t.addFooter([]string{"If realised", "", "", "", "", "", "$" + Comma(gain), ""})
 	t.addFooter([]string{"As now", "", "", "", "", "", "$" + Comma(asnow), ""})
 	t.addFooter([]string{"Profit", "", "", "", "", "", "$" + Comma(gain-asnow), ""})
-	report.body += fmt.Sprintln(t)
+	report.Body += fmt.Sprintln(t)
 
 	/*
 	   send message
 	*/
-	fmt.Println(report.body)
-	//report.Send()
+	fmt.Println(report.Body)
+	report.Send()
 }
 
-func (r Report) Send() (e error) {
+func (r *Report) Send() (e error) {
 	m := gomail.NewMessage()
-	m.SetHeader("From", r.emailfrom)
-	m.SetHeader("To", r.emailto)
-	m.SetHeader("Subject", r.subject)
-	m.SetBody("text/plain", r.body)
+	m.SetHeader("From", r.Emailfrom)
+	m.SetHeader("To", r.Emailto)
+	m.SetHeader("Subject", r.Subject)
+	m.SetBody("text/html", "<pre>"+r.Body+"</pre>")
+// 	fmt.Println(m)
 	//d := gomail.NewDialer(r.smtpserver, r.port, r.smtp_login, r.smtp_password) // with auth
-	d := gomail.Dialer{Host: r.smtpserver, Port: r.port, SSL: false, Auth: nil} // no auth
+	d := gomail.Dialer{Host: "127.0.0.1", Port: 25, SSL: false, Auth: nil} // no auth
 	//if r.smtp_ssl {d.SSL=true}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
