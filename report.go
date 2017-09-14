@@ -139,6 +139,8 @@ const (
 	DOT
 )
 
+const poloniexTime = "2006-01-02 15:04:05"
+
 type PrettyTable struct {
 	columns []column
 	rows    [][]string
@@ -322,7 +324,7 @@ func NewReport(conf string) *Report {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	r.subject = "Poloniex Activity Report for " + r.reportname
+	r.subject = "Poloniex Activity Report for " + r.reportname + " at " + time.Now().Format(poloniexTime)
 	return r
 
 }
@@ -330,10 +332,12 @@ func NewReport(conf string) *Report {
 func main() {
 	p := poloniex.New("config.json")
 	report := NewReport("reportconfig.json")
-	report.body = fmt.Sprintln("\n" + heading("Prices"))
+
+	report.body = fmt.Sprintln(heading(report.subject) + "\n\n")
 	/*
 	   Prices
 	*/
+	report.body += fmt.Sprintln("\n" + heading("Prices"))
 
 	ticker, err := p.Ticker()
 	if err != nil {
@@ -356,7 +360,6 @@ func main() {
 		log.Fatalln(err)
 	}
 	//fmt.Printf("%+v\n", mytrades)
-	const poloniexTime = "2006-01-02 15:04:05"
 	/*
 		  	t, _ := time.Parse(poloniex, "2017-09-06 16:32:11")
 			fmt.Println(t)
