@@ -1,0 +1,35 @@
+diff --git a/private.go b/private.go
+index 6415975..9034b56 100644
+--- a/private.go
++++ b/private.go
+@@ -267,6 +267,17 @@ func (p *Poloniex) PrivateTradeHistoryAll() (history PrivateTradeHistoryAll, err
+ 	return
+ }
+ 
++func (p *Poloniex) PrivateTradeHistoryAllWeek() (history PrivateTradeHistoryAll, err error) {
++	params := url.Values{}
++	params.Add("currencyPair", "all")
++	params.Add("start", fmt.Sprintf("%d", time.Now().Add(-168*time.Hour).Unix()))
++	params.Add("end", "9999999999")
++	err = p.private("returnTradeHistory", params, &history)
++	return
++}
++
++
++
+ func (p *Poloniex) OrderTrades(orderNumber int64) (ot OrderTrades, err error) {
+ 	params := url.Values{}
+ 	params.Add("orderNumber", fmt.Sprintf("%d", orderNumber))
+@@ -531,6 +542,12 @@ func (p *Poloniex) private(method string, params url.Values, v interface{}) erro
+ 	if base.Error != "" {
+ 		return fmt.Errorf("API ERROR: %s", base.Error)
+ 	}
++	
++	// Check that the response is not a nil json response. 
++	// some types that expect a map fail when json.Unmarshall
++	// receives a nil json. This just passes nil back so that v becomes the correct type.
++ 	if s=="[]" { return nil }
++	
+ 	err = json.Unmarshal([]byte(s), v)
+ 	if err != nil {
+ 		return err
