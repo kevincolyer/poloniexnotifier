@@ -507,8 +507,8 @@ func (r *Report) Send() (e error) {
 	m.SetHeader("Subject", r.Subject)
 	m.SetBody("text/html", "<pre>"+r.Body+"</pre>")
 // 	fmt.Println(m)
-	//d := gomail.NewDialer(r.smtpserver, r.port, r.smtp_login, r.smtp_password) // with auth
-	d := gomail.Dialer{Host: "127.0.0.1", Port: 25, SSL: false, Auth: nil} // no auth
+	d := gomail.NewDialer(r.Smtpserver, int(r.Port), r.Smtp_login, r.Smtp_password) // with or without auth
+	//d := gomail.Dialer{Host: "127.0.0.1", Port: 25, SSL: false, Auth: nil} // no auth
 	//if r.smtp_ssl {d.SSL=true}
 	if err := d.DialAndSend(m); err != nil {
 		panic(err)
