@@ -313,6 +313,7 @@ type Report struct {
 	Smtp_ssl      bool
 	Subject       string
 	Body          string
+	Topmovers     float64
 }
 
 // unmarshal only fills exported fields!!!
@@ -333,7 +334,10 @@ func NewReport(conf string) *Report {
 	if r.Reportname=="" {
             log.Fatalln("Error - no report name specified in config file "+conf)
         }
+        
+        // defaults
 	r.Subject = "Poloniex Activity Report for " + r.Reportname + " at " + time.Now().Format(poloniexTime)
+        if r.Topmovers==0 { r.Topmovers = 15 }
 	return r
 
 }
@@ -358,7 +362,44 @@ func main() {
 	USDT_BTC := ticker["USDT_BTC"].Last
 	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
 	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
+        report.Body += fmt.Sprintln()
 
+        /*
+        Top Movers 
+        */
+        tm:=int(report.Topmovers)
+	report.Body += fmt.Sprintln("\n" + heading(fmt.Sprintf("Top %v%% Movers",tm)))
+        t:= NewPrettyTable()
+//         report.Body
+        type mover struct {
+            name CurrencyPair
+            rate float64
+            change int
+        }
+        
+        var movers []mover 
+        
+        for c,i:=range ticker {
+            if int(math.Abs(i.Change)*100)<tm { continue }
+            pair:=NewCurrencyPair(c)
+            if pair.Base!="BTC" { continue }
+            movers=append(movers,mover{ 
+                name: pair, 
+                rate: i.Last, 
+                change: int(i.Change*100)} )
+        }
+        sort.Slice(movers,func(i,j int) bool {return movers[i].change<movers[j].change})
+        
+        t.addColumn(&column{title: "Currency", align: RIGHT})
+        t.addColumn(&column{title: "Rate", align: DOT,dot: "."})
+        t.addColumn(&column{title: "Change", align: DOT,dot: "."})
+
+        for _,o:=range movers {
+            i := fmt.Sprintf("%s|%v|%v%%", o.name, Currency(o.rate), o.change)
+		t.addRow(strings.Split(i, "|"))
+	}
+        report.Body+= fmt.Sprintln(t)
+        
 	/*
 	   recent trades
 	*/
@@ -393,7 +434,7 @@ func main() {
 	}
 	sort.Slice(mytradehistory, func(i, j int) bool { return mytradehistory[i].Date > mytradehistory[j].Date })
 
-	t := NewPrettyTable()
+	t= NewPrettyTable()
 	//	t.html=true
 	t.addColumn(&column{title: "24", align: RIGHT})
 	t.addColumn(&column{title: "Order", align: LEFT})

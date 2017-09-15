@@ -2,9 +2,8 @@
     "emailto":"kevin@example.com",
     "emailfrom":"kevin@example.com",
     "reportname":"Poloniex General Account",
-    
     "smtpserver":"smtp.gmail.com",
-    "port":"587",
+    "port":587,
     "smtp_login":"youremailloging@gmail.com",
-    "smtp_password":"app password",
+    "smtp_password":"app password"
 }
