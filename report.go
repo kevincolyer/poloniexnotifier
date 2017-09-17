@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"log"
 	"math"
 	"sort"
 	"strings"
 	"time"
-        "github.com/pkg/errors"
 
 	"gitlab.com/wmlph/poloniex-api"
 	"gopkg.in/gomail.v2"
@@ -320,24 +320,26 @@ type Report struct {
 
 func NewReport(conf string) *Report {
 	r := &Report{}
-// 	fmt.Println(r)
+	// 	fmt.Println(r)
 	b, err := ioutil.ReadFile(conf)
 	if err != nil {
 		log.Fatalln(errors.Wrap(err, "reading "+conf+" failed."))
 	}
-// 	fmt.Printf("%s\n",b)
+	// 	fmt.Printf("%s\n",b)
 	err = json.Unmarshal(b, r)
 	if err != nil {
 		log.Fatalln(errors.Wrap(err, "unmarshalling json failed"))
 	}
-// 	fmt.Println(r)
-	if r.Reportname=="" {
-            log.Fatalln("Error - no report name specified in config file "+conf)
-        }
-        
-        // defaults
+	// 	fmt.Println(r)
+	if r.Reportname == "" {
+		log.Fatalln("Error - no report name specified in config file " + conf)
+	}
+
+	// defaults
 	r.Subject = "Poloniex Activity Report for " + r.Reportname + " at " + time.Now().Format(poloniexTime)
-        if r.Topmovers==0 { r.Topmovers = 15 }
+	if r.Topmovers == 0 {
+		r.Topmovers = 15
+	}
 	return r
 
 }
@@ -347,77 +349,39 @@ func main() {
 	report := NewReport("reportconfig.json")
 
 	report.Body = fmt.Sprintln(heading(report.Subject) + "\n\n")
-	/*
-	   Prices
-	*/
-	report.Body += fmt.Sprintln("\n" + heading("Prices"))
 
+	// Three calls to poloniex api to get ticker data, mytrades and open orders
 	ticker, err := p.Ticker()
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	//fmt.Printf("%+v\n", ticker["USDT_BTC"]) == {Last:4192.58071046 Ask:4192.58071046 Bid:4186.2093 Change:0.03316429 BaseVolume:3.534202327390681e+07 QuoteVolume:8405.26739006 IsFrozen:0}
-
-	USDT_BTC := ticker["USDT_BTC"].Last
-	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
-	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
-        report.Body += fmt.Sprintln()
-
-        /*
-        Top Movers 
-        */
-        tm:=int(report.Topmovers)
-	report.Body += fmt.Sprintln("\n" + heading(fmt.Sprintf("Top %v%% Movers",tm)))
-        t:= NewPrettyTable()
-//         report.Body
-        type mover struct {
-            name CurrencyPair
-            rate float64
-            change int
-        }
-        
-        var movers []mover 
-        
-        for c,i:=range ticker {
-            if int(math.Abs(i.Change)*100)<tm { continue }
-            pair:=NewCurrencyPair(c)
-            if pair.Base!="BTC" { continue }
-            movers=append(movers,mover{ 
-                name: pair, 
-                rate: i.Last, 
-                change: int(i.Change*100)} )
-        }
-        sort.Slice(movers,func(i,j int) bool {return movers[i].change<movers[j].change})
-        
-        t.addColumn(&column{title: "Currency", align: RIGHT})
-        t.addColumn(&column{title: "Rate", align: DOT,dot: "."})
-        t.addColumn(&column{title: "Change", align: DOT,dot: "."})
-
-        for _,o:=range movers {
-            i := fmt.Sprintf("%s|%v|%v%%", o.name, Currency(o.rate), o.change)
-		t.addRow(strings.Split(i, "|"))
-	}
-        report.Body+= fmt.Sprintln(t)
-        
-	/*
-	   recent trades
-	*/
-
-	report.Body += fmt.Sprintln("\n" + heading("Recent Trades"))
-
 	// added a patch to poloniex api to provide the function below
 	mytrades, err := p.PrivateTradeHistoryAllWeek()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	//fmt.Printf("%+v\n", mytrades)
-	/*
-		  	t, _ := time.Parse(poloniex, "2017-09-06 16:32:11")
-			fmt.Println(t)
-			fmt.Println(t.Format(time.RFC850))
+	openorders, err := p.OpenOrdersAll()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	//fmt.Printf("%+v\n", ticker["USDT_BTC"]) == {Last:4192.58071046 Ask:4192.58071046 Bid:4186.2093 Change:0.03316429 BaseVolume:3.534202327390681e+07 QuoteVolume:8405.26739006 IsFrozen:0}
 
+	// All data fetched OK! Phew
+
+	/*
+	   Prices
 	*/
+	report.Body += fmt.Sprintln(heading("Prices"))
+
+	USDT_BTC := ticker["USDT_BTC"].Last
+	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
+	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
+	report.Body += fmt.Sprintln()
+
+	/*
+	   recent trades
+	*/
+	report.Body += fmt.Sprintln("\n" + heading("Recent Trades"))
 
 	var mytradehistory MyTradeHistory
 	for curr, trades := range mytrades {
@@ -434,7 +398,7 @@ func main() {
 	}
 	sort.Slice(mytradehistory, func(i, j int) bool { return mytradehistory[i].Date > mytradehistory[j].Date })
 
-	t= NewPrettyTable()
+	t := NewPrettyTable()
 	//	t.html=true
 	t.addColumn(&column{title: "24", align: RIGHT})
 	t.addColumn(&column{title: "Order", align: LEFT})
@@ -443,7 +407,7 @@ func main() {
 	t.addColumn(&column{title: "Rate", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Amount", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Total", align: DOT, dot: "."})
-	t.addColumn(&column{title: "Value", align: DOT, dot: "."})
+	t.addColumn(&column{title: "$ Value", align: DOT, dot: "."})
 	t.addColumn(&column{title: "24", align: LEFT})
 
 	gain := 0.0
@@ -466,10 +430,55 @@ func main() {
 		} else {
 			p24h = "*"
 		}
-		i := fmt.Sprintf("%s|%9s|%s|%-4s|%v|%v|%v|%v USDT|%s", p24h, o.Pair, o.Date, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), Comma(k), p24h)
+		i := fmt.Sprintf("%s|%9s|%s|%-4s|%v|%v|%v|%v|%s", p24h, o.Pair, o.Date, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), Comma(k), p24h)
 		t.addRow(strings.Split(i, "|"))
 	}
 	t.addFooter([]string{"", "Net gain", "", "", "", "", "", Comma(gain) + " USDT", ""})
+	report.Body += fmt.Sprintln(t)
+
+	/*
+	   Top Movers
+	*/
+	tm := int(report.Topmovers)
+	report.Body += fmt.Sprintln("\n" + heading(fmt.Sprintf("Top %v%% Movers", tm)))
+	t = NewPrettyTable()
+	//         report.Body
+	type mover struct {
+		name   CurrencyPair
+		rate   float64
+		change int
+	}
+
+	var movers []mover
+
+	for c, i := range ticker {
+		if int(math.Abs(i.Change)*100) < tm {
+			continue
+		}
+		pair := NewCurrencyPair(c)
+		if pair.Base != "BTC" {
+			continue
+		}
+		movers = append(movers, mover{
+			name:   pair,
+			rate:   i.Last,
+			change: int(i.Change * 100)})
+	}
+	sort.Slice(movers, func(i, j int) bool { return movers[i].change < movers[j].change })
+
+	t.addColumn(&column{title: "Vested", align: RIGHT})
+	t.addColumn(&column{title: "Currency", align: RIGHT})
+	t.addColumn(&column{title: "Rate", align: DOT, dot: "."})
+	t.addColumn(&column{title: "Change", align: DOT, dot: "."})
+
+	for _, o := range movers {
+		v := " "
+		if len(openorders[o.name.Poloniex()]) != 0 {
+			v = "*"
+		}
+		i := fmt.Sprintf("%s|%s|%v|%v%%", v, o.name, Currency(o.rate), o.change)
+		t.addRow(strings.Split(i, "|"))
+	}
 	report.Body += fmt.Sprintln(t)
 
 	/*
@@ -477,10 +486,7 @@ func main() {
 	*/
 
 	report.Body += fmt.Sprintln("\n" + heading("My Open Orders"))
-	openorders, err := p.OpenOrdersAll()
-	if err != nil {
-		log.Fatalln(err)
-	}
+
 	var myorders MyOpenOrders
 
 	for pair, orders := range openorders {
@@ -507,7 +513,7 @@ func main() {
 	t.addColumn(&column{title: "Rate", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Amount", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Value", align: DOT, dot: "."})
-	t.addColumn(&column{title: "Gain", align: DOT, dot: "."})
+	t.addColumn(&column{title: "$ Gain", align: DOT, dot: "."})
 	t.addColumn(&column{title: "24hrs", align: LEFT})
 	gain = 0.0
 	asnow := 0.0
@@ -517,6 +523,9 @@ func main() {
 		if o.Pair.Base == "BTC" {
 			k = USDT_BTC * k
 		}
+		if o.Type == "buy" {
+			k = -k
+		}
 		gain += k
 		j = o.Amount
 		if o.Pair.Base == "BTC" {
@@ -524,7 +533,7 @@ func main() {
 		}
 		asnow += j
 		//
-		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s|$%v|%+.0f%%", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k), ticker[o.Pair.Poloniex()].Change*100)
+		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s|%v|%+.0f%%", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k), ticker[o.Pair.Poloniex()].Change*100)
 
 		t.addRow(strings.Split(i, "|"))
 	}
@@ -547,7 +556,7 @@ func (r *Report) Send() (e error) {
 	m.SetHeader("To", r.Emailto)
 	m.SetHeader("Subject", r.Subject)
 	m.SetBody("text/html", "<pre>"+r.Body+"</pre>")
-// 	fmt.Println(m)
+	// 	fmt.Println(m)
 	d := gomail.NewDialer(r.Smtpserver, int(r.Port), r.Smtp_login, r.Smtp_password) // with or without auth
 	//d := gomail.Dialer{Host: "127.0.0.1", Port: 25, SSL: false, Auth: nil} // no auth
 	//if r.smtp_ssl {d.SSL=true}
