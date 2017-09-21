@@ -375,7 +375,7 @@ func main() {
 
 	USDT_BTC := ticker["USDT_BTC"].Last
 	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
-	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100))
+	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100),fmt.Sprintf("(%s BTC)",Currency(ticker["BTC_ETH"].Last)))
 	report.Body += fmt.Sprintln()
 
 	/*
