@@ -353,16 +353,17 @@ func main() {
 	// Three calls to poloniex api to get ticker data, mytrades and open orders
 	ticker, err := p.Ticker()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln(errors.Wrap(err,"failed to get p.Ticker"))
 	}
 	// added a patch to poloniex api to provide the function below
 	mytrades, err := p.PrivateTradeHistoryAllWeek()
-	if err != nil {
-		log.Fatalln(err)
-	}
+// commented out because  poloniex api does not handle empty json gracefully. pthaw just errors. If there is an error we can safely omit this part of the report 
+//	if err != nil {
+//		log.Fatalln(errors.Wrap(err, "failed to get p.PrivateTradeHistoryAllWeek"))
+//	}
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln(errors.Wrap(err, "failed to get p.OpenOrdersAll"))
 	}
 	//fmt.Printf("%+v\n", ticker["USDT_BTC"]) == {Last:4192.58071046 Ask:4192.58071046 Bid:4186.2093 Change:0.03316429 BaseVolume:3.534202327390681e+07 QuoteVolume:8405.26739006 IsFrozen:0}
 
