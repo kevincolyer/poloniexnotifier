@@ -353,14 +353,14 @@ func main() {
 	// Three calls to poloniex api to get ticker data, mytrades and open orders
 	ticker, err := p.Ticker()
 	if err != nil {
-		log.Fatalln(errors.Wrap(err,"failed to get p.Ticker"))
+		log.Fatalln(errors.Wrap(err, "failed to get p.Ticker"))
 	}
 	// added a patch to poloniex api to provide the function below
 	mytrades, err := p.PrivateTradeHistoryAllWeek()
-// commented out because  poloniex api does not handle empty json gracefully. pthaw just errors. If there is an error we can safely omit this part of the report 
-//	if err != nil {
-//		log.Fatalln(errors.Wrap(err, "failed to get p.PrivateTradeHistoryAllWeek"))
-//	}
+	// commented out because  poloniex api does not handle empty json gracefully. pthaw just errors. If there is an error we can safely omit this part of the report
+	//	if err != nil {
+	//		log.Fatalln(errors.Wrap(err, "failed to get p.PrivateTradeHistoryAllWeek"))
+	//	}
 	openorders, err := p.OpenOrdersAll()
 	if err != nil {
 		log.Fatalln(errors.Wrap(err, "failed to get p.OpenOrdersAll"))
@@ -375,9 +375,41 @@ func main() {
 	report.Body += fmt.Sprintln(heading("Prices"))
 
 	USDT_BTC := ticker["USDT_BTC"].Last
-	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC),fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100))
-	report.Body += fmt.Sprintln("Last price of Ethereum: $", Comma(ticker["USDT_ETH"].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_ETH"].Change*100),fmt.Sprintf("(%s BTC)",Currency(ticker["BTC_ETH"].Last)), fmt.Sprintf("(%+.0f%%)", ticker["BTC_ETH"].Change*100))
-	report.Body += fmt.Sprintln()
+	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100), "\n")
+
+        // list of certain prices I am following - could stick in json and fish out if I felt like improving...
+        var clist = []struct {
+		fn string
+		tn string
+	}{
+		{"Etherium", "ETH"},
+		{"Dogecoin", "DOGE"},
+		{"Monero", "XMR"},
+		{"Dash", "DASH"},
+		{"Lisk", "LSK"},
+		{"Maidcoin", "MAID"},
+		{"Stellar", "STR"},
+		{"Clams", "CLAM"},
+		{"VCash", "XVC"},
+		{"Ripple", "XRP"},
+		{"Factom", "FCT"},
+	}
+
+	t := NewPrettyTable()
+
+	t.addColumn(&column{title: "Coin", align: LEFT})
+	t.addColumn(&column{title: "USDT", align: DOT, dot: "."})
+	t.addColumn(&column{title: "% Change", align: DOT, dot: "."})
+	t.addColumn(&column{title: "BTC", align: DOT, dot: "."})
+	t.addColumn(&column{title: "% Change", align: DOT, dot: "."})
+
+	for _, cr := range clist {
+		//fmt.Sprintln("Last price of",cr.fn,"$", Comma(ticker["USDT_"+cr.tn].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_"+cr.tn].Change*100),fmt.Sprintf("%s BTC",Currency(ticker["BTC_"+cr.tn].Last)), fmt.Sprintf("(%+.0f%%)", ticker["BTC_"+cr.tn].Change*100))
+
+		i := fmt.Sprintf("%s|%v|%+.0f|%v|%+.0f", cr.fn, Comma(ticker["USDT_"+cr.tn].Last), ticker["USDT_"+cr.tn].Change*100, Currency(ticker["BTC_"+cr.tn].Last), ticker["BTC_"+cr.tn].Change*100)
+		t.addRow(strings.Split(i, "|"))
+	}
+	report.Body += fmt.Sprintln(t)
 
 	/*
 	   recent trades
@@ -399,7 +431,7 @@ func main() {
 	}
 	sort.Slice(mytradehistory, func(i, j int) bool { return mytradehistory[i].Date > mytradehistory[j].Date })
 
-	t := NewPrettyTable()
+	t = NewPrettyTable()
 	//	t.html=true
 	t.addColumn(&column{title: "24", align: RIGHT})
 	t.addColumn(&column{title: "Order", align: LEFT})
