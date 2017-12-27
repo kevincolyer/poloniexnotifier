@@ -377,8 +377,8 @@ func main() {
 	USDT_BTC := ticker["USDT_BTC"].Last
 	report.Body += fmt.Sprintln("Last price of Bitcoin : $", Comma(USDT_BTC), fmt.Sprintf("(%+.0f%%)", ticker["USDT_BTC"].Change*100), "\n")
 
-        // list of certain prices I am following - could stick in json and fish out if I felt like improving...
-        var clist = []struct {
+	// list of certain prices I am following - could stick in json and fish out if I felt like improving...
+	var clist = []struct {
 		fn string
 		tn string
 	}{
@@ -387,6 +387,7 @@ func main() {
 		{"Monero", "XMR"},
 		{"Dash", "DASH"},
 		{"Lisk", "LSK"},
+		{"Litecoin", "LTC"},
 		{"Maidcoin", "MAID"},
 		{"Stellar", "STR"},
 		{"Clams", "CLAM"},
@@ -405,8 +406,12 @@ func main() {
 
 	for _, cr := range clist {
 		//fmt.Sprintln("Last price of",cr.fn,"$", Comma(ticker["USDT_"+cr.tn].Last), fmt.Sprintf("(%+.0f%%)", ticker["USDT_"+cr.tn].Change*100),fmt.Sprintf("%s BTC",Currency(ticker["BTC_"+cr.tn].Last)), fmt.Sprintf("(%+.0f%%)", ticker["BTC_"+cr.tn].Change*100))
-
-		i := fmt.Sprintf("%s|%v|%+.0f|%v|%+.0f", cr.fn, Comma(ticker["USDT_"+cr.tn].Last), ticker["USDT_"+cr.tn].Change*100, Currency(ticker["BTC_"+cr.tn].Last), ticker["BTC_"+cr.tn].Change*100)
+		usd := ticker["USDT_"+cr.tn].Last
+		if usd == 0 {
+			// no ticker so calculate
+			usd = ticker["BTC_"+cr.tn].Last * USDT_BTC
+		}
+		i := fmt.Sprintf("%s|%v|%+.0f|%v|%+.0f", cr.fn, Comma(usd), ticker["USDT_"+cr.tn].Change*100, Currency(ticker["BTC_"+cr.tn].Last), ticker["BTC_"+cr.tn].Change*100)
 		t.addRow(strings.Split(i, "|"))
 	}
 	report.Body += fmt.Sprintln(t)
