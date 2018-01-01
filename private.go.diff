@@ -1,0 +1,49 @@
+diff --git a/private.go b/private.go
+index a46f50e..7bcfdcb 100644
+--- a/private.go
++++ b/private.go
+@@ -201,6 +201,13 @@ func (p *Poloniex) Balances() (balances Balances, err error) {
+ 	return
+ }
+ 
++func (p *Poloniex) BalancesAll() (balances Balances, err error) {
++    	params := url.Values{}
++	params.Add("account", "all")
++	p.private("returnCompleteBalances", params, &balances)
++	return
++}
++
+ func (p *Poloniex) AccountBalances() (balances AccountBalances, err error) {
+ 	b := AccountBalancesTemp{}
+ 	p.private("returnAvailableAccountBalances", nil, &b)
+@@ -267,6 +274,17 @@ func (p *Poloniex) PrivateTradeHistoryAll() (history PrivateTradeHistoryAll, err
+ 	return
+ }
+ 
++func (p *Poloniex) PrivateTradeHistoryAllWeek() (history PrivateTradeHistoryAll, err error) {
++	params := url.Values{}
++	params.Add("currencyPair", "all")
++	params.Add("start", fmt.Sprintf("%d", time.Now().Add(-168*time.Hour).Unix()))
++	params.Add("end", "9999999999")
++	err = p.private("returnTradeHistory", params, &history)
++	return
++}
++
++
++
+ func (p *Poloniex) OrderTrades(orderNumber int64) (ot OrderTrades, err error) {
+ 	params := url.Values{}
+ 	params.Add("orderNumber", fmt.Sprintf("%d", orderNumber))
+@@ -534,6 +552,12 @@ func (p *Poloniex) private(method string, params url.Values, v interface{}) erro
+ 	if err != nil {
+ 		return fmt.Errorf("API ERROR: %s", err)
+ 	}
++	
++	// Check that the response is not a nil json response. 
++	// some types that expect a map fail when json.Unmarshall
++	// receives a nil json. This just passes nil back so that v becomes the correct type.
++ 	if s=="[]" { return nil }
++	
+ 	err = json.Unmarshal([]byte(s), v)
+ 	return err
+ }

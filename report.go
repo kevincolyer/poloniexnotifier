@@ -365,6 +365,11 @@ func main() {
 	if err != nil {
 		log.Fatalln(errors.Wrap(err, "failed to get p.OpenOrdersAll"))
 	}
+	// KPC Patched this function...
+	balances, err := p.BalancesAll()
+	if err != nil {
+		log.Fatalln(errors.Wrap(err, "failed to get p.Balances"))
+	}
 	//fmt.Printf("%+v\n", ticker["USDT_BTC"]) == {Last:4192.58071046 Ask:4192.58071046 Bid:4186.2093 Change:0.03316429 BaseVolume:3.534202327390681e+07 QuoteVolume:8405.26739006 IsFrozen:0}
 
 	// All data fetched OK! Phew
@@ -394,6 +399,7 @@ func main() {
 		{"VCash", "XVC"},
 		{"Ripple", "XRP"},
 		{"Factom", "FCT"},
+		{"Next", "NXT"},
 	}
 
 	t := NewPrettyTable()
@@ -582,7 +588,48 @@ func main() {
 	report.Body += fmt.Sprintln(t)
 
 	/*
-	   send message
+		Holdings - sorted by bitcoin equiv descending - total sum (and usd value)
+	*/
+
+	//        report.Body="" //just for testing
+	report.Body += fmt.Sprintln("\n" + heading("My Balances"))
+
+	type MyBalance struct {
+		poloniex.Balance
+		curr string
+	}
+
+	var mybalances []MyBalance
+	for c, bal := range balances {
+		if bal.BTCValue > 0 {
+			mybalances = append(mybalances, MyBalance{bal, c})
+		}
+	}
+	sort.Slice(mybalances, func(i, j int) bool { return mybalances[i].BTCValue > mybalances[j].BTCValue })
+
+	t = NewPrettyTable()
+	t.addColumn(&column{title: "Curr", align: LEFT})
+	t.addColumn(&column{title: "Available", align: DOT, dot: "."})
+	t.addColumn(&column{title: "On Orders", align: DOT, dot: "."})
+	t.addColumn(&column{title: "BTC", align: DOT, dot: "."})
+	t.addColumn(&column{title: "USD", align: DOT, dot: "."})
+	t.addColumn(&column{title: "Total", align: DOT, dot: "."})
+
+	total := 0.0
+	for _, b := range mybalances {
+		total += b.BTCValue
+		i := fmt.Sprintf("%9s|%v|%v|%v|%v|%v", b.curr, Currency(b.Available), Currency(b.OnOrders), Currency(b.BTCValue), Comma(b.BTCValue*USDT_BTC), Currency(total))
+
+		t.addRow(strings.Split(i, "|"))
+	}
+
+	t.addFooter([]string{"Total", "", "", "", "$" + Comma(float64(total)*USDT_BTC), ""})
+	//          report.Body+=fmt.Sprintf("%#v\n",mybalances)
+	report.Body += fmt.Sprintln(t)
+
+	/////////////////////////////////////////////////////////////
+	/*
+	   send report via email
 	*/
 	fmt.Println(report.Body)
 	report.Send()
