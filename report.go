@@ -396,7 +396,6 @@ func main() {
 		{"Maidcoin", "MAID"},
 		{"Stellar", "STR"},
 		{"Clams", "CLAM"},
-		{"VCash", "XVC"},
 		{"Ripple", "XRP"},
 		{"Factom", "FCT"},
 		{"Next", "NXT"},
