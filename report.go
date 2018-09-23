@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+        "os"
 
 	"gitlab.com/wmlph/poloniex-api"
 	"gopkg.in/gomail.v2"
@@ -314,7 +315,15 @@ type Report struct {
 	Subject       string
 	Body          string
 	Topmovers     float64
+	Csv           bool
 }
+
+type csv struct  {
+    time    string
+    btc     float64
+    usd     float64    
+}
+
 
 // unmarshal only fills exported fields!!!
 
@@ -328,7 +337,7 @@ func NewReport(conf string) *Report {
 	// 	fmt.Printf("%s\n",b)
 	err = json.Unmarshal(b, r)
 	if err != nil {
-		log.Fatalln(errors.Wrap(err, "unmarshalling json failed"))
+		log.Fatalln(errors.Wrap(err, "unmarshalling json failed for "+conf))
 	}
 	// 	fmt.Println(r)
 	if r.Reportname == "" {
@@ -347,7 +356,8 @@ func NewReport(conf string) *Report {
 func main() {
 	p := poloniex.New("config.json")
 	report := NewReport("reportconfig.json")
-
+        csv:=csv{time:time.Now().Format(poloniexTime)}
+        
 	report.Body = fmt.Sprintln(heading(report.Subject) + "\n\n")
 
 	// Three calls to poloniex api to get ticker data, mytrades and open orders
@@ -626,12 +636,34 @@ func main() {
 	//          report.Body+=fmt.Sprintf("%#v\n",mybalances)
 	report.Body += fmt.Sprintln(t)
 
+        csv.usd=total*USDT_BTC
+        csv.btc=total
+        
 	/////////////////////////////////////////////////////////////
 	/*
 	   send report via email
 	*/
 	fmt.Println(report.Body)
-	report.Send()
+	//report.Send()
+        if report.Csv {
+            s:=fmt.Sprintf("%v,%.2f,%v\n",csv.time,csv.usd,Currency(csv.btc))
+            f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY, 0600)
+            if err != nil {
+                // might not be created. So create and write header...
+                f, err = os.OpenFile("data.csv", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+                if _, err = f.WriteString("time,usd,btc\n"); err != nil {
+                    f.Close()
+                    panic(err)
+                }
+               
+            }
+
+            defer f.Close()
+
+            if _, err = f.WriteString(s); err != nil {
+                panic(err)
+            }
+        }
 }
 
 func (r *Report) Send() (e error) {
