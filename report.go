@@ -562,12 +562,12 @@ func main() {
 	t = NewPrettyTable()
 	t.addColumn(&column{title: "Order", align: LEFT})
 	t.addColumn(&column{title: "Prox", align: LEFT})
+	t.addColumn(&column{title: "24hrs", align: LEFT})
 	t.addColumn(&column{title: "Type", align: LEFT, dot: "."})
 	t.addColumn(&column{title: "Rate", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Amount", align: DOT, dot: "."})
 	t.addColumn(&column{title: "Value", align: DOT, dot: "."})
 	t.addColumn(&column{title: "$ Gain", align: DOT, dot: "."})
-	t.addColumn(&column{title: "24hrs", align: LEFT})
 	gain = 0.0
 	asnow := 0.0
 	j := 0.0
@@ -586,7 +586,7 @@ func main() {
 		}
 		asnow += j
 		//
-		i := fmt.Sprintf("%9s|%3.0f%%|%-4s|%v|%v|%v %s|%v|%+.0f%%", o.Pair, o.Proximity, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k), ticker[o.Pair.Poloniex()].Change*100)
+		i := fmt.Sprintf("%9s|%3.0f%%|%+.0f%%|%-4s|%v|%v|%v %s|%v", o.Pair, o.Proximity,ticker[o.Pair.Poloniex()].Change*100, o.Type, Currency(o.Rate), Currency(o.Amount), Currency(o.Total), o.Pair.Base, Comma(k) )
 
 		t.addRow(strings.Split(i, "|"))
 	}
@@ -644,7 +644,12 @@ func main() {
 	   send report via email
 	*/
 	fmt.Println(report.Body)
-	//report.Send()
+	report.Send()
+        
+        ////////////////////////////////////////////////////////////
+        /*
+        CSV file create to track BTC and USD
+        */
         if report.Csv {
             s:=fmt.Sprintf("%v,%.2f,%v\n",csv.time,csv.usd,Currency(csv.btc))
             f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY, 0600)
