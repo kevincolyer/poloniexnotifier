@@ -650,6 +650,7 @@ func main() {
         /*
         CSV file create to track BTC and USD
         */
+
         if report.Csv {
             s:=fmt.Sprintf("%v,%.2f,%v\n",csv.time,csv.usd,Currency(csv.btc))
             f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY, 0600)
