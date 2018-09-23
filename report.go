@@ -644,7 +644,7 @@ func main() {
 	   send report via email
 	*/
 	fmt.Println(report.Body)
-	//report.Send()
+	report.Send()
         if report.Csv {
             s:=fmt.Sprintf("%v,%.2f,%v\n",csv.time,csv.usd,Currency(csv.btc))
             f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY, 0600)
